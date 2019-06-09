@@ -1,0 +1,30 @@
+{
+  "symbols_requested":1,
+  "symbols_returned":1,
+  "data":[
+    {
+      "symbol":"KGHA.F",
+      "name":"KGHM Polska Miedz SA",
+      "currency":"EUR",
+      "price":"22.00",
+      "price_open":"22.00",
+      "day_high":"22.00",
+      "day_low":"22.00",
+      "52_week_high":"26.24",
+      "52_week_low":"18.72",
+      "day_change":"-0.20",
+      "change_pct":"-0.90",
+      "close_yesterday":"22.20",
+      "market_cap":"18619999694",
+      "volume":"100",
+      "volume_avg":"N/A",
+      "shares":"N/A",
+      "stock_exchange_long":"Frankfurt Stock Exchange",
+      "stock_exchange_short":"FRA",
+      "timezone":"CEST",
+      "timezone_name":"Europe/Berlin",
+      "gmt_offset":"7200",
+      "last_trade_time":"2019-06-07 14:36:34"
+    }
+  ]
+}
