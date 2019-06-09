@@ -76,8 +76,8 @@ object TweetSentimentAnalyzer {
     // This delimiter was chosen as the probability of this character appearing in tweets is very less.
     val DELIMITER = "¦"
     val tweetsClassifiedPath = PropertiesLoader.tweetsClassifiedPath
-    val classifiedTweets = rawTweets.filter(hasGeoLocation)
-      .map(predictSentiment)
+    val filteredTweets = rawTweets.filter(hasGeoLocation)
+    val classifiedTweets = filteredTweets.map(predictSentiment)
 
     ssc.start()
     ssc.awaitTerminationOrTimeout(PropertiesLoader.totalRunTimeInMinutes * 60 * 1000) // auto-kill after processing rawTweets for n mins.
