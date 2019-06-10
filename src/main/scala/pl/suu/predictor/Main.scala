@@ -1,23 +1,16 @@
 package pl.suu.predictor
 
-import java.time.format.DateTimeFormatterBuilder
-import java.util.Random
-
 import com.typesafe.config.ConfigFactory
 import org.apache.spark._
+import org.apache.spark.mllib.classification.NaiveBayesModel
 import org.apache.spark.streaming._
-import org.apache.spark.streaming.scheduler.{StreamingListener, StreamingListenerBatchCompleted}
-import org.joda.time.format.DateTimeFormatter
-import org.joda.time.{DateTime, Hours}
 import org.slf4j.{Logger, LoggerFactory}
-import pl.suu.predictor.sentiment.TweetSentimentAnalyzer
+import pl.suu.predictor.sentiment.mllib.MLlibSentimentAnalyzer
+import pl.suu.predictor.sentiment.utils.{PropertiesLoader, StopwordsLoader}
 import pl.suu.predictor.spark.TwitterReceiver
 import pl.suu.predictor.stock.{LocalDataProvider, StockService}
-import twitter4j.TwitterFactory
+import twitter4j.{Status, TwitterFactory}
 import vegas._
-import vegas.render.WindowRenderer._
-import vegas.sparkExt._
-import vegas.spec.Spec.DateTime
 
 // Create a local StreamingContext with two working thread and batch interval of 1 second.
 // The master requires 2 cores to prevent from a starvation scenario.
@@ -26,6 +19,8 @@ object Main extends App {
 
   val conf = new SparkConf().setMaster("local[2]").setAppName("TwitterData")
   val ssc = new StreamingContext(conf, Seconds(1))
+  val naiveBayesModel = NaiveBayesModel.load(ssc.sparkContext, PropertiesLoader.naiveBayesModelPath)
+  val stopWordsList = ssc.sparkContext.broadcast(StopwordsLoader.loadStopWords(PropertiesLoader.nltkStopWords))
 
   val config = ConfigFactory.load()
   val filters = Seq("KGHM", "cuprum", "Chludzinski", "Chludziński", "Chludzienskiemu", "Chludzińskiego")
@@ -37,7 +32,7 @@ object Main extends App {
 
 
   stream
-    .map(tweet => (new org.joda.time.DateTime(tweet.getCreatedAt).toString("yyyy-MM-dd"), getSentiment(tweet.getText)))
+    .map(tweet => (new org.joda.time.DateTime(tweet.getCreatedAt).toString("yyyy-MM-dd"), getSentiment(tweet)))
     .groupByKey()
     .map {
       case (date, sentimentArray) => Map("symbol" -> "tweet", "date" -> date, "sentiment" -> sentimentArray.sum)
@@ -87,10 +82,19 @@ object Main extends App {
 
   plot.show
 
-  //  SparkNaiveBayesModelCreator.main(Array.empty)
-  //  TweetSentimentAnalyzer.main(Array.empty)
+  def getSentiment(tweet: Status): Int = {
+    val tweetText = replaceNewLines(tweet.getText)
+    val mllibSentiment =
+      if (isTweetInEnglish(tweet)) MLlibSentimentAnalyzer.computeSentiment(tweetText, stopWordsList, naiveBayesModel) else 0
 
-  def getSentiment(tweet: String): Int = {
-    new Random().nextInt(3) - 1
+    mllibSentiment
+  }
+
+  def isTweetInEnglish(status: Status): Boolean = {
+    status.getLang == "en" && status.getUser.getLang == "en"
+  }
+
+  def replaceNewLines(tweetText: String): String = {
+    tweetText.replaceAll("\n", "")
   }
 }

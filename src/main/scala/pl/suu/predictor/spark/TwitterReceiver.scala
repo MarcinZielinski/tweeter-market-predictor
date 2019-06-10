@@ -38,7 +38,7 @@ class TwitterReceiver(twitter: Twitter)
         dateSince = DateTime.now().minusDays(i + 1).toString("yyyy-MM-dd")
       } {
         for {
-          tw <- Future(twitter.search(new Query("KGHM OR cuprum OR Chludzinski OR Chludziński").lang("pl").since(dateSince).until(dateUntil).count(100)))
+          tw <- Future(twitter.search(new Query("KGHM OR cuprum OR Chludzinski OR Chludziński").lang("en").since(dateSince).until(dateUntil).count(100)))
         } yield store(tw.getTweets.asScala.iterator)
       }
     } catch {
