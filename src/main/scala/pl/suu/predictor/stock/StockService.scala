@@ -12,7 +12,7 @@ case class StockService(remoteService: StockDataProvider) {
   def getStockFromLast7Days: IntradayData = {
     remoteService.getIntradayStockPrice(7, 1) match {
       case Success(stock) => parse(stock).extract[IntradayData]
-      case Failure(e) => sys.error(e.getLocalizedMessage)
+      case Failure(e) => throw e
     }
   }
 

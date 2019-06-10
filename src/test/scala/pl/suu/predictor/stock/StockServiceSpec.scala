@@ -1,5 +1,9 @@
 package pl.suu.predictor.stock
 
+
+import java.text.DateFormat
+
+import org.joda.time.DateTime
 import org.scalamock.scalatest.MockFactory
 import org.scalatest._
 import resource._

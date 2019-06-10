@@ -4,6 +4,7 @@ import java.util.concurrent.ForkJoinPool
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.storage.StorageLevel
+import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.streaming.receiver.Receiver
 import org.joda.time.DateTime
 import twitter4j.{Query, Status, Twitter}
@@ -40,7 +41,6 @@ class TwitterReceiver(twitter: Twitter)
           tw <- Future(twitter.search(new Query("KGHM OR cuprum OR Chludzinski OR Chludziński").lang("pl").since(dateSince).until(dateUntil).count(100)))
         } yield store(tw.getTweets.asScala.iterator)
       }
-
     } catch {
       case t: Throwable =>
         // restart if there is error
