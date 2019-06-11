@@ -1,32 +1,39 @@
 package pl.suu.predictor.stock
 
-import net.liftweb.json._
-import pl.suu.predictor.stock.model.{HistoryData, IntradayData, StockData}
+import pl.suu.predictor.stock.model.{HistoryData, IntradayData}
 
 import scala.util.{Failure, Success}
 
-case class StockService(remoteService: StockDataProvider) {
-  implicit val formats: DefaultFormats = DefaultFormats
-
-
-  def getStockFromLast7Days: IntradayData = {
-    remoteService.getIntradayStockPrice(7, 1) match {
-      case Success(stock) => parse(stock).extract[IntradayData]
-      case Failure(e) => throw e
-    }
-  }
+case class StockService(stock: String = "KGHA.F") {
+  val localDataService = StockDataService(LocalDataProvider(stock))
+  val remoteDataService = StockDataService(RemoteDataProvider(stock))
+  val stockDataPersister = StockDataPersister(stock)
 
   def getFullHistory: HistoryData = {
-    remoteService.getFullHistory match {
-      case Success(stock) => parse(stock).extract[HistoryData]
-      case Failure(e) => sys.error(e.getLocalizedMessage)
+    localDataService.getFullHistory match {
+      case Success(data) => data
+      case Failure(_) =>
+        remoteDataService.getFullHistory match {
+          case Success(data) =>
+            stockDataPersister.persist(data)
+            data
+          case Failure(e) => throw e
+        }
+
     }
   }
 
-  def getCurrentStock: StockData = {
-    remoteService.getCurrentStockPrice match {
-      case Success(stock) => parse(stock).extract[StockData]
-      case Failure(e) => sys.error(e.getLocalizedMessage)
+  def getLast7Days: IntradayData = {
+    localDataService.getStockFromLast7Days match {
+      case Success(data) => data
+      case Failure(_) =>
+        remoteDataService.getStockFromLast7Days match {
+          case Success(data) =>
+            stockDataPersister.persist(data)
+            data
+          case Failure(e) => throw e
+        }
+
     }
   }
 }

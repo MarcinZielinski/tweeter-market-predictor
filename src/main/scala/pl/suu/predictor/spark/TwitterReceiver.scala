@@ -12,7 +12,7 @@ import twitter4j.{Query, Status, Twitter}
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
-class TwitterReceiver(twitter: Twitter)
+class TwitterReceiver(twitter: Twitter, filters: Seq[String])
   extends Receiver[Status](StorageLevel.MEMORY_AND_DISK_2) with Logging {
 
 
@@ -38,7 +38,7 @@ class TwitterReceiver(twitter: Twitter)
         dateSince = DateTime.now().minusDays(i + 1).toString("yyyy-MM-dd")
       } {
         for {
-          tw <- Future(twitter.search(new Query("KGHM OR cuprum OR Chludzinski OR Chludziński").lang("en").since(dateSince).until(dateUntil).count(100)))
+          tw <- Future(twitter.search(new Query(filters.mkString(" OR ")).lang("en").since(dateSince).until(dateUntil).count(100)))
         } yield store(tw.getTweets.asScala.iterator)
       }
     } catch {
