@@ -16,5 +16,6 @@ libraryDependencies ++= Seq(
   "org.apache.spark" %% "spark-streaming-twitter" % "1.6.3",
   "com.typesafe" % "config" % "1.3.4",
   "org.vegas-viz" %% "vegas" % "0.3.11",
-  "org.vegas-viz" %% "vegas-spark" % "0.3.11"
+  "org.vegas-viz" %% "vegas-spark" % "0.3.11",
+  "com.github.tototoshi" %% "scala-csv" % "1.3.6"
 )

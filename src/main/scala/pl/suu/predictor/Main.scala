@@ -4,22 +4,21 @@ import com.typesafe.config.ConfigFactory
 import org.apache.spark._
 import org.apache.spark.mllib.classification.NaiveBayesModel
 import org.apache.spark.streaming._
-import org.joda.time.Days
 import org.slf4j.{Logger, LoggerFactory}
-import pl.suu.predictor.plot.PlotService
+import pl.suu.predictor.csv.CsvWriter
 import pl.suu.predictor.sentiment.mllib.MLlibSentimentAnalyzer
 import pl.suu.predictor.sentiment.utils.{PropertiesLoader, StopwordsLoader}
 import pl.suu.predictor.spark.TwitterReceiver
-import pl.suu.predictor.stock.{LocalDataProvider, StockDataService, StockProcessor, StockService}
+import pl.suu.predictor.spark.model.{CsvTweet, SentimentTweet}
 import twitter4j.{Status, TwitterFactory}
-import vegas._
 
 // Create a local StreamingContext with two working thread and batch interval of 1 second.
 // The master requires 2 cores to prevent from a starvation scenario.
 object Main extends App {
 
-  val stockName = args.headOption.getOrElse("KGHA.F")
-  val filters = if (args.drop(1).isEmpty) List("KGHM", "cuprum", "Chludzinski", "Chludziński") else args.drop(1).toList
+
+  val stockName = args.headOption.getOrElse("kghm")
+  val filters = if (args.drop(1).isEmpty) List("KGHM", "cuprum") else args.drop(1).toList
 
   val logger: Logger = LoggerFactory.getLogger(getClass)
 
@@ -36,32 +35,42 @@ object Main extends App {
 
 
   var list: List[Map[String, Any]] = List()
+
+  type Date = String
+
+  var processedTweets: List[(Date, Iterable[SentimentTweet])] = List()
+
   stream
-    .map(tweet => (new org.joda.time.DateTime(tweet.getCreatedAt).toString("yyyy-MM-dd"),
-      getSentiment(tweet)))
-    .groupByKey()
-
-
-    .map {
-      case (date, sentimentArray) => Map("symbol" -> "tweet", "date" -> date, "value" -> sentimentArray.sum)
-    }
+    .map(tweet => (new org.joda.time.DateTime(tweet.getCreatedAt).toString("yyyy-MM-dd HH':00:00'"),
+      SentimentTweet(tweet.getId, getSentiment(tweet))))
+    .groupByKey
     .foreachRDD(tweet => {
-      if(tweet.count > 0) {
-        list ++= tweet.collect
+      if (tweet.count > 0) {
+        processedTweets ++= tweet.collect
       }
     })
 
   startSpark
 
+  val csvTweets: List[CsvTweet] = processedTweets
+    .distinct
+    .map {
+      case (date, sentimentTweets) => date -> sentimentTweets.map(_.sentiment)
+    }
+    .map {
+      case (date, sentiments) =>
+        val positiveTweets = sentiments.count(_ == 1)
+        val neutralTweets = sentiments.count(_ == 0)
+        val negativeTweets = sentiments.count(_ == -1)
+        CsvTweet(date, positiveTweets, neutralTweets, negativeTweets)
+    }
+    .sortBy(_.date)
 
-  list ++= StockProcessor(StockService(stockName)).process
-
-  PlotService(400.0, 400.0, list).plot
-
+  CsvWriter.save("twitter-sentiment.csv", Seq("date", "positive", "neutral", "negative"), csvTweets)
 
   private def startSpark = {
     ssc.start()
-    ssc.awaitTerminationOrTimeout(5000)
+    ssc.awaitTerminationOrTimeout(10000)
   }
 
   def getSentiment(tweet: Status): Int = {

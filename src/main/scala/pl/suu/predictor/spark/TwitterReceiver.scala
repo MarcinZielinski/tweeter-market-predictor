@@ -33,12 +33,13 @@ class TwitterReceiver(twitter: Twitter, filters: Seq[String])
       implicit val executionContext: ExecutionContext = ExecutionContext.fromExecutor(new ForkJoinPool(4))
 
       for {
-        i <- 0 to 8
+        i <- 0 to 7
         dateUntil = DateTime.now().minusDays(i).toString("yyyy-MM-dd")
         dateSince = DateTime.now().minusDays(i + 1).toString("yyyy-MM-dd")
+        filter <- filters
       } {
         for {
-          tw <- Future(twitter.search(new Query(filters.mkString(" OR ")).lang("en").since(dateSince).until(dateUntil).count(100)))
+          tw <- Future(twitter.search(new Query(filter).lang("en").since(dateSince).until(dateUntil).count(100)))
         } yield store(tw.getTweets.asScala.iterator)
       }
     } catch {

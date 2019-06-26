@@ -1,23 +1,26 @@
 package pl.suu.predictor.stock
 
-import org.joda.time.Days
+import org.joda.time.{DateTime, Days, Duration, Hours, Period}
+import org.joda.time.format.{DateTimeFormat, PeriodFormatter}
 
 case class StockProcessor(stockService: StockService) {
   def process: List[Map[String, Any]] = {
-    stockService.getLast7Days.intraday
+    stockService.getHoursCSV
       .map {
-        case (date, values) => org.joda.time.DateTime.parse(
-          date, org.joda.time.format.DateTimeFormat.forPattern("yyyy-MM-ddd HH:mm:ss")) -> values
+        csv =>
+          DateTime.parse(
+            csv.date, DateTimeFormat.forPattern("yyyy-MM-dd"))
+            .plus(Duration.millis(DateTime.parse(csv.time, DateTimeFormat.forPattern("HH:mm:ss")).getMillis)) -> csv.open.toDouble
       }
       .filter{
-        case (date, values) => date.isAfter(new org.joda.time.DateTime().minus(Days.days(8)))
+        case (date, _) => date.isAfter(new org.joda.time.DateTime().minus(Days.days(8)))
       }
       .map {
-        case (date, values) => date.toString("yyyy-MM-dd") -> values
+        case (date, value) => date.toString("yyyy-MM-dd'T'HH:mm:ss") -> value
       }
       .groupBy(xs => xs._1)
       .map {
-        case (date, values) => Map("symbol" -> stockService.stock, "date" -> date, "value" -> values.map(_._2.close.toDouble).sum / values.size)
+        case (date, values) => Map("symbol" -> stockService.stock, "date" -> date, "value" -> values.map(_._2).sum / values.size)
       }.toList
   }
 }

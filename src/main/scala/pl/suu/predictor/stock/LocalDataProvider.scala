@@ -1,26 +1,14 @@
 package pl.suu.predictor.stock
-import java.io.File
+import pl.suu.predictor.stock.model.StockCsvData
+import resource.managed
 
 import scala.io.Source
 import scala.util.Try
-import resource.managed
 
-case class LocalDataProvider(stock: String = "KGHA.F") extends StockDataProvider {
-  override def getIntradayStockPrice(fromLastDays: Int, minutesInterval: Int): Try[String] = {
+case class LocalDataProvider(stock: String = "kghm") {
+  def getHoursCsv: Try[List[StockCsvData]] = {
     (for {
-        result <- managed(Source.fromURL(getClass.getResource(s"$stock-last-7-days.json")))
-    } yield result.mkString).tried
-  }
-
-  override def getCurrentStockPrice: Try[String] = {
-    (for {
-      result <- managed(Source.fromURL(getClass.getResource(s"$stock-current.json")))
-    } yield result.mkString).tried
-  }
-
-  override def getFullHistory: Try[String] = {
-    (for {
-      result <- managed(Source.fromURL(getClass.getResource(s"$stock-history.json")))
-    } yield result.mkString).tried
+      result <- managed(Source.fromURL(getClass.getResource(s"$stock-minutes.csv")))
+    } yield result.getLines().drop(1).map(line => StockCsvData.from(line.split(","))).toList).tried
   }
 }
