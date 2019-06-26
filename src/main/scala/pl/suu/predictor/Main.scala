@@ -9,7 +9,7 @@ import pl.suu.predictor.csv.CsvWriter
 import pl.suu.predictor.sentiment.mllib.MLlibSentimentAnalyzer
 import pl.suu.predictor.sentiment.utils.{PropertiesLoader, StopwordsLoader}
 import pl.suu.predictor.spark.TwitterReceiver
-import pl.suu.predictor.spark.model.{CsvTweet, SentimentTweet}
+import pl.suu.predictor.spark.model.{CsvTweet, CsvTweetWithText, SentimentTweet, ToSeqable}
 import twitter4j.{Status, TwitterFactory}
 
 // Create a local StreamingContext with two working thread and batch interval of 1 second.
@@ -42,7 +42,7 @@ object Main extends App {
 
   stream
     .map(tweet => (new org.joda.time.DateTime(tweet.getCreatedAt).toString("yyyy-MM-dd HH':00:00'"),
-      SentimentTweet(tweet.getId, getSentiment(tweet))))
+      SentimentTweet(tweet.getId, getSentiment(tweet), s"${tweet.getText} #${tweet.getHashtagEntities.mkString(" #")}")))
     .groupByKey
     .foreachRDD(tweet => {
       if (tweet.count > 0) {
@@ -52,21 +52,37 @@ object Main extends App {
 
   startSpark
 
-  val csvTweets: List[CsvTweet] = processedTweets
-    .distinct
-    .map {
-      case (date, sentimentTweets) => date -> sentimentTweets.map(_.sentiment)
-    }
-    .map {
-      case (date, sentiments) =>
-        val positiveTweets = sentiments.count(_ == 1)
-        val neutralTweets = sentiments.count(_ == 0)
-        val negativeTweets = sentiments.count(_ == -1)
-        CsvTweet(date, positiveTweets, neutralTweets, negativeTweets)
-    }
-    .sortBy(_.date)
+  val csvTweets: List[ToSeqable] = extractTweetsTextWithSentiments
 
-  CsvWriter.save("twitter-sentiment.csv", Seq("date", "positive", "neutral", "negative"), csvTweets)
+  CsvWriter.save("twitter-sentiment-with-text.csv", csvTweets)
+
+  private def extractTweetsTextWithSentiments = {
+    processedTweets
+      .distinct
+      .flatMap {
+        case (date, sentimentTweets) => sentimentTweets.map(tweet => CsvTweetWithText(tweet.text, tweet.sentiment match {
+          case -1 => "Negative"
+          case 0 => "Positive"
+          case 1 => "Negative"
+        }))
+      }
+  }
+
+  private def extractSentimentsWithDates = {
+    processedTweets
+      .distinct
+      .map {
+        case (date, sentimentTweets) => date -> sentimentTweets.map(_.sentiment)
+      }
+      .map {
+        case (date, sentiments) =>
+          val positiveTweets = sentiments.count(_ == 1)
+          val neutralTweets = sentiments.count(_ == 0)
+          val negativeTweets = sentiments.count(_ == -1)
+          CsvTweet(date, positiveTweets, neutralTweets, negativeTweets)
+      }
+      .sortBy(_.date)
+  }
 
   private def startSpark = {
     ssc.start()

@@ -3,19 +3,19 @@ package pl.suu.predictor.csv
 import java.io.File
 
 import com.github.tototoshi.csv.CSVWriter
-import pl.suu.predictor.spark.model.CsvTweet
+import pl.suu.predictor.spark.model.ToSeqable
 
 case object CsvWriter {
-  def save(filename: String, header: Seq[String], data: Seq[CsvTweet]): Unit = {
+  def save(filename: String, data: Seq[ToSeqable]): Unit = {
 
     val file = new File(s"src/main/resources/$filename")
 
     val writer = CSVWriter.open(file)
 
-    writer.writeRow(header)
+    data.headOption.foreach(head => writer.writeRow(head.header))
 
     data
-      .map(tweet => Seq(tweet.date, tweet.positive, tweet.neutral, tweet.negative))
+      .map(_.toSeq)
       .foreach(csvRow => {
         writer.writeRow(csvRow)
       })
