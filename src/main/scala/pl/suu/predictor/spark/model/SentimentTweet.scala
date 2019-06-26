@@ -1,3 +1,3 @@
 package pl.suu.predictor.spark.model
 
-case class SentimentTweet(id: Long, sentiment: Int, text: String)
+case class SentimentTweet(id: Long, sentimentBayes: Int, sentimentNLP: Int, text: String)

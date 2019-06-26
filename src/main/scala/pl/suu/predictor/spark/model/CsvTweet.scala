@@ -11,8 +11,8 @@ case class CsvTweet(date: String, positive: Int, neutral: Int, negative: Int) ex
   override val header: Seq[String] = Seq("date", "positive", "neutral", "negative")
 }
 
-case class CsvTweetWithText(tweet: String, attitude: String) extends ToSeqable {
-  override def toSeq: Seq[_] = Seq(tweet, attitude)
+case class CsvTweetWithText(tweet: String, attitudeBayes: String, attitudeNLP: String) extends ToSeqable {
+  override def toSeq: Seq[_] = Seq(tweet, attitudeBayes, attitudeNLP)
 
-  override val header: Seq[String] = Seq("tweet", "attitude")
+  override val header: Seq[String] = Seq("tweet", "attitudeBayes", "attitudeNLP")
 }

@@ -6,6 +6,7 @@ import org.apache.spark.mllib.classification.NaiveBayesModel
 import org.apache.spark.streaming._
 import org.slf4j.{Logger, LoggerFactory}
 import pl.suu.predictor.csv.CsvWriter
+import pl.suu.predictor.sentiment.corenlp.CoreNLPSentimentAnalyzer.computeSentiment
 import pl.suu.predictor.sentiment.mllib.MLlibSentimentAnalyzer
 import pl.suu.predictor.sentiment.utils.{PropertiesLoader, StopwordsLoader}
 import pl.suu.predictor.spark.TwitterReceiver
@@ -18,7 +19,7 @@ object Main extends App {
 
 
   val stockName = args.headOption.getOrElse("kghm")
-  val filters = if (args.drop(1).isEmpty) List("KGHM", "cuprum") else args.drop(1).toList
+  val filters = if (args.drop(1).isEmpty) List("KGHM", "cuprum", "copper") else args.drop(1).toList
 
   val logger: Logger = LoggerFactory.getLogger(getClass)
 
@@ -42,7 +43,7 @@ object Main extends App {
 
   stream
     .map(tweet => (new org.joda.time.DateTime(tweet.getCreatedAt).toString("yyyy-MM-dd HH':00:00'"),
-      SentimentTweet(tweet.getId, getSentiment(tweet), s"${tweet.getText} #${tweet.getHashtagEntities.mkString(" #")}")))
+      SentimentTweet(tweet.getId, getSentiment(tweet), computeSentiment(tweet.getText), s"${tweet.getText} #${tweet.getHashtagEntities.mkString(" #")}")))
     .groupByKey
     .foreachRDD(tweet => {
       if (tweet.count > 0) {
@@ -56,23 +57,30 @@ object Main extends App {
 
   CsvWriter.save("twitter-sentiment-with-text.csv", csvTweets)
 
+  println("DONE")
+
   private def extractTweetsTextWithSentiments = {
     processedTweets
       .distinct
       .flatMap {
-        case (date, sentimentTweets) => sentimentTweets.map(tweet => CsvTweetWithText(tweet.text, tweet.sentiment match {
-          case -1 => "Negative"
-          case 0 => "Positive"
-          case 1 => "Negative"
-        }))
+        case (date, sentimentTweets) => sentimentTweets
+          .map(tweet => CsvTweetWithText(tweet.text, translateSentimentToString(tweet.sentimentBayes), translateSentimentToString(tweet.sentimentNLP)))
       }
+  }
+
+  def translateSentimentToString(sentimentValue: Int): String = {
+    sentimentValue match {
+      case -1 => "Negative"
+      case 0 => "Neutral"
+      case 1 => "Positive"
+    }
   }
 
   private def extractSentimentsWithDates = {
     processedTweets
       .distinct
       .map {
-        case (date, sentimentTweets) => date -> sentimentTweets.map(_.sentiment)
+        case (date, sentimentTweets) => date -> sentimentTweets.map(_.sentimentBayes)
       }
       .map {
         case (date, sentiments) =>
@@ -86,7 +94,7 @@ object Main extends App {
 
   private def startSpark = {
     ssc.start()
-    ssc.awaitTerminationOrTimeout(10000)
+    ssc.awaitTerminationOrTimeout(100000)
   }
 
   def getSentiment(tweet: Status): Int = {
