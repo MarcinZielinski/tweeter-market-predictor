@@ -117,9 +117,11 @@ object Main extends App {
     var listBuffer: ListBuffer[CsvTweet] = ListBuffer()
     for (i <- 1 until dateSenti.length) {
       val csvTweet = dateSenti(i)
-      val hour = new DateTime(csvTweet.date.replace(' ', 'T')).getHourOfDay
+      val csvTweetDateTime = new DateTime(csvTweet.date.replace(' ', 'T'))
+      val hour = csvTweetDateTime.getHourOfDay
+      val dayOfTheWeek = csvTweetDateTime.getDayOfWeek
 
-      if (hour > 17 || hour < 10) {
+      if (hour > 17 || hour < 10 || dayOfTheWeek == 7 || dayOfTheWeek == 6 || csvTweetDateTime.getDayOfMonth == 20) {
         if (previousTweet != null) {
           listBuffer -= previousTweet
           previousTweet = previousTweet.copy(
