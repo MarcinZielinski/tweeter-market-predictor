@@ -33,7 +33,7 @@ class TwitterReceiver(twitter: Twitter, filters: Seq[String])
       implicit val executionContext: ExecutionContext = ExecutionContext.fromExecutor(new ForkJoinPool(4))
 
       for {
-        i <- 0 to 7
+        i <- 0 to 8
         dateUntil = DateTime.now().minusDays(i).toString("yyyy-MM-dd")
         dateSince = DateTime.now().minusDays(i + 1).toString("yyyy-MM-dd")
         filter <- filters
