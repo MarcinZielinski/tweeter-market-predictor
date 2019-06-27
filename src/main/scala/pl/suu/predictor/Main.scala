@@ -22,7 +22,7 @@ object Main extends App {
 
 
   val stockName = args.headOption.getOrElse("kghm")
-  val filters = if (args.drop(1).isEmpty) List("KGHM", "cuprum") else args.drop(1).toList
+  val filters = if (args.drop(1).isEmpty) List("$VIX", "#VIX") else args.drop(1).toList
 
   val logger: Logger = LoggerFactory.getLogger(getClass)
 
@@ -45,8 +45,10 @@ object Main extends App {
   var processedTweets: List[(Date, Iterable[SentimentTweet])] = List()
 
   stream
-    .map(tweet => (new org.joda.time.DateTime(tweet.getCreatedAt).toString("yyyy-MM-dd HH':00:00'"),
-      SentimentTweet(tweet.getId, getSentiment(tweet), computeSentiment(tweet.getText), s"${tweet.getText} #${tweet.getHashtagEntities.mkString(" #")}")))
+    .map(tweet => (new org.joda.time.DateTime(tweet.getCreatedAt).toString("yyyy-MM-dd HH':00:00'"), {
+      val cleanedText = getBarebonesTweetText(tweet.getText)
+      SentimentTweet(tweet.getId, getSentiment(tweet), computeSentiment(cleanedText), s"$cleanedText")
+    }))
     .groupByKey
     .foreachRDD(tweet => {
       if (tweet.count > 0) {
@@ -56,9 +58,30 @@ object Main extends App {
 
   startSpark
 
-  val csvTweets: List[ToSeqable] = extractAggregatedSentiment
+  val csvTweets1: List[ToSeqable] = extractAggregatedSentiment
+  val csvTweets2: List[ToSeqable] = extractTweetsTextWithSentiments
 
-  CsvWriter.save("twitter-sentiment-with-text.csv", csvTweets)
+  CsvWriter.save("twitter-sentiment-aggregated.csv", csvTweets1)
+  CsvWriter.save("twitter-sentiment-with-text.csv", csvTweets2)
+
+  def getBarebonesTweetText(tweetText: String): String = {
+    //Remove URLs, RT, MT and other redundant chars / strings from the tweets.
+    var tmp = tweetText.toLowerCase()
+    tmp = tmp.replaceAll("\n", " ")
+    tmp = tmp.replaceAll("rt\\s+", "")
+    tmp = tmp.replaceAll("\\s+@\\w+", "")
+    tmp = tmp.replaceAll("@\\w+", "")
+    tmp = tmp.replaceAll("\\s+#\\w+", "")
+    tmp = tmp.replaceAll("#\\w+", "")
+    tmp = tmp.replaceAll("(?:https?|http?)://[\\w/%.-]+", "")
+    tmp = tmp.replaceAll("(?:https?|http?)://[\\w/%.-]+\\s+", "")
+    tmp = tmp.replaceAll("(?:https?|http?)//[\\w/%.-]+\\s+", "")
+    tmp = tmp.replaceAll("(?:https?|http?)//[\\w/%.-]+", "")
+    var tmpA = tmp.split("\\W+")
+    tmpA = tmpA.filter(_.matches("^[a-zA-Z]+$"))
+    tmp = tmpA.fold("")((a,b) => a.trim + " " + b.trim).trim
+    tmp
+  }
 
   private def extractTweetsTextWithSentiments = {
     processedTweets
@@ -165,7 +188,7 @@ object Main extends App {
 
   private def startSpark = {
     ssc.start()
-    ssc.awaitTerminationOrTimeout(100000)
+    ssc.awaitTerminationOrTimeout(500000)
   }
 
   def getSentiment(tweet: Status): Int = {

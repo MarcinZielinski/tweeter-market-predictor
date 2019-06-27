@@ -20,9 +20,14 @@ object CoreNLPSentimentAnalyzer {
   }
 
   def computeSentiment(text: String): Int = {
-    val (_, sentiment) = extractSentiments(text)
-      .maxBy { case (sentence, _) => sentence.length }
-    sentiment
+    val sentiments = extractSentiments(text)
+    if (sentiments.isEmpty) {
+      0
+    } else {
+      val (_, sentiment) = sentiments
+        .maxBy { case (sentence, _) => sentence.length }
+      sentiment
+    }
   }
 
   /**
